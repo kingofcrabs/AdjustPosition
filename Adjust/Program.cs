@@ -13,27 +13,38 @@ namespace Adjust
         static string concFile = ConfigurationManager.AppSettings["concFile"];
         static void Main(string[] args)
         {
-            //try
+            try
             {
                 Console.WriteLine(strings.version);
+                
+                DeleteCSVFiles(concFile);
                 Console.WriteLine("Converting excel to csv file...");
                 Convert2CSV();
                 concFile = concFile.Replace(".xlsx", ".csv");
                 List<double> concs = ReadConcs(concFile);
+                
                 Console.WriteLine("Converted successfully.");
                 //FourBuffers fourBuffers = new FourBuffers();
                 if(args.Length == 0)
                     throw new Exception("No buffer count has been specified!");
-                IPipettingInfosGenerator pipettingGenerator = BufferFactory.Create(int.Parse(args[0]));
-                var pipettingInfos = pipettingGenerator.GetPipettingInfos(concs);
-                pipettingInfos = pipettingInfos.OrderBy(x => x.dstPlateID * 100 + x.dstWellID).ToList();
+                
+                int bufferCnt = int.Parse(args[0]);
+                if (bufferCnt > 80)
+                    throw new Exception("sample count must <= 80!");
+                IPipettingInfosGenerator pipettingGenerator = BufferFactory.Create(bufferCnt);
+                var simplifyPipettingInfos = pipettingGenerator.GetPipettingInfos(concs);
+                simplifyPipettingInfos = simplifyPipettingInfos.OrderBy(x => x.dstPlateID * 100 + x.dstWellID).ToList();
                 
                 FileInfo fi = new FileInfo(concFile);
                 string sDir = fi.Directory.FullName;
                 string sSamplePipetting = sDir + "\\sample.csv";
-                string sBufferPipetting = sDir + "\\buffer.csv";
-                Common.Write2File(sSamplePipetting, pipettingInfos, true);
-                Common.Write2File(sBufferPipetting, pipettingInfos, false);
+                string sBufferPipetting = sDir + string.Format("\\buffer{0}.csv", bufferCnt);
+                string sBufferPipettingGWL = sDir + string.Format("\\buffer{0}.gwl",bufferCnt);
+                Common.Write2File(sSamplePipetting, simplifyPipettingInfos, true);
+                Common.Write2File(sBufferPipetting, simplifyPipettingInfos, false);
+                Worklist wklist = new Worklist();
+                var completePipettingInfos = Common.Convert2CompletePipettingInfos(simplifyPipettingInfos);
+                File.WriteAllLines(sBufferPipettingGWL, wklist.GenerateGWL(completePipettingInfos));
                 Console.WriteLine(string.Format("worklist for sample & buffer has been generated at:{0}", sDir));
                 //List<double> testConcs = new List<double>();
                 //for (int i = 0; i < 81; i++)
@@ -58,13 +69,22 @@ namespace Adjust
                 ////pipettingInfos = pipettingInfos.OrderBy(x => x.dstPlateID * 100 + x.dstWellID).ToList();
                 //Common.Write2File(sFile + "oneBuffer.txt", pipettingInfos);
             }
-            //catch(Exception ex)
-            //{
-            //    Console.WriteLine(ex.Message + ex.StackTrace);
-            //}
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message + ex.StackTrace);
+            }
             Console.WriteLine("Press any key to exit!");
             Console.ReadKey();
         }
+
+        private static void DeleteCSVFiles(string concFile)
+        {
+            string sCSV = concFile.Replace(".xlsx", ".csv");
+            if (File.Exists(sCSV))
+                File.Delete(sCSV);
+        }
+
+        
 
         private static List<double> ReadConcs(string concFile)
         {

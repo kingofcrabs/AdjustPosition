@@ -61,7 +61,7 @@ namespace Adjust {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to 0.02.
+        ///   Looks up a localized string similar to 0.06.
         /// </summary>
         internal static string version {
             get {
