@@ -42,57 +42,73 @@ namespace Adjust
             double concPC = concs.Last();
             concs.RemoveAt(concs.Count - 1);
             List<int> specialIndexs = new List<int>() {22,23,46,47,70,71};
-            for( int i = 0; i< concs.Count; i++)
+            int totalCnt = concs.Count;
+            for (int i = totalCnt - 1; i >= 0; i--)
             {
                 if (specialIndexs.Contains(i))
+                {
                     specialPosConc.Add(i, concs[i]);
+                    concs.RemoveAt(i);
+                }
+            }
+            //concs.AddRange(specialPosConc.Values); //move special position to end
+            List<PipettingInfoSimplify> pipettingInfos = new List<PipettingInfoSimplify>();
+            for( int i = 0; i< concs.Count; i++)
+            {
+                int dstPlateIndex = i / maxCntPerPlate;
+                int indexInDstPlate = i - dstPlateIndex * maxCntPerPlate;
+                int colInDstPlate = indexInDstPlate / 8;
+                int indexInCol = indexInDstPlate - colInDstPlate * 8;
+                int startIndexInDst = colInDstPlate * 32 + indexInCol;
+                int srcWellID = i + 1 + dstPlateIndex * 2; //add 2 pushed back
+                if (srcWellID > 40)//one blank column
+                    srcWellID += 8;
+                double conc = concs[i];
+                pipettingInfos.AddRange(GetPipettingInfosThisWell(srcWellID, dstPlateIndex + 1, startIndexInDst+1, conc));
             }
 
-            List<PipettingInfoSimplify> pipettingInfos = new List<PipettingInfoSimplify>();
-            int dstPlateCnt = (concs.Count + maxCntPerPlate -1) / maxCntPerPlate;
-            for (int dstPlateIndex = 0; dstPlateIndex < dstPlateCnt; dstPlateIndex++ )
+            specialPosConc = specialPosConc.Reverse().ToDictionary(x=>x.Key,x=>x.Value);
+            for (int i = 0; i < specialPosConc.Count; i++)
             {
-                int dstPlateStartIndex = dstPlateIndex * (maxCntPerPlate+2);
-                int c = dstPlateIndex + 1;
-                int thisPlateCnt = maxCntPerPlate;
+                int curIndex = concs.Count + i;
+                int dstPlateIndex = curIndex / maxCntPerPlate;
+                int indexInDstPlate = curIndex - dstPlateIndex * maxCntPerPlate;
+                int colInDstPlate = indexInDstPlate / 8;
+                int indexInCol = indexInDstPlate - colInDstPlate * 8;
+                int startIndexInDst = colInDstPlate * 32 + indexInCol;
+                int srcWellID = specialIndexs[i] + 1;
+                double conc = specialPosConc[srcWellID-1];
+                if (srcWellID > 40)//one blank column
+                    srcWellID += 8;
+                pipettingInfos.AddRange(GetPipettingInfosThisWell(srcWellID, dstPlateIndex + 1, startIndexInDst + 1, conc));
+            }
+
+
+           
+            int dstPlateCnt = (concs.Count + maxCntPerPlate -1) / maxCntPerPlate;
+            for (int dstPlateIndex = 0; dstPlateIndex < dstPlateCnt; dstPlateIndex++)
+            {
                 bool isFinalPlate = dstPlateIndex == dstPlateCnt - 1;
+                int curPlateCnt = maxCntPerPlate;
                 if (isFinalPlate)
-                    thisPlateCnt = concs.Count - dstPlateIndex * (maxCntPerPlate+2);
-                
-                for (int dstWellIndex = 0; dstWellIndex < thisPlateCnt; dstWellIndex++)
                 {
-                    int colShift = dstWellIndex / 8;
-                    int srcWellID = dstPlateStartIndex + dstWellIndex + 1;
-                    double conc = concs[srcWellID-1];
-                    
-                    if (srcWellID > 40) //one blank column
-                        srcWellID += 8;
-                    int thisColIndex = dstWellIndex - colShift * 8;
-                    pipettingInfos.AddRange(GetPipettingInfosThisWell(srcWellID, dstPlateIndex + 1, thisColIndex + 1 + colShift * 32, conc));
+                    curPlateCnt = concs.Count + specialPosConc.Count - dstPlateCnt * maxCntPerPlate;
+                    //normal + nc + pc + pushed back
+                    curPlateCnt++;
+                    int pcColShift = curPlateCnt / 8;
+                    int pcColIndex = curPlateCnt - pcColShift * 8;
+                    pipettingInfos.AddRange(GetPipettingInfosThisWell(Common.GetWellID("A6"), dstPlateIndex + 1, pcColIndex + 1 + pcColShift * 32, concPC));
+                    curPlateCnt++;
+                    int ncColShift = curPlateCnt / 8;
+                    int ncColIndex = curPlateCnt - ncColShift * 8;
+                    pipettingInfos.AddRange(GetPipettingInfosThisWell(Common.GetWellID("E6"), dstPlateIndex + 1, ncColIndex + 1 + ncColShift * 32, 0));
                 }
-
-                //add the wells be pushed to final plate
-                int curPlateCnt = thisPlateCnt; //first, we add normal samples, then we add samples pushed back by NC & PC
-                if(isFinalPlate)
+                else
                 {
-                    foreach(KeyValuePair<int,double> pair in specialPosConc)
-                    {
-                        int colShift = curPlateCnt / 8;
-                        int colIndex = curPlateCnt - colShift * 8;
-                        pipettingInfos.AddRange(GetPipettingInfosThisWell(pair.Key + 1, dstPlateIndex + 1, colIndex + 1 + colShift * 32, pair.Value));
-                        curPlateCnt++;
-                    }
+                    pipettingInfos.AddRange(GetPipettingInfosThisWell(Common.GetWellID("A6"), dstPlateIndex + 1,Common.GetWellID("G9") , concPC));
+                    pipettingInfos.AddRange(GetPipettingInfosThisWell(Common.GetWellID("E6"), dstPlateIndex + 1, Common.GetWellID("H9"), 0));
                 }
-
-                //normal + nc + pc + pushed back
-                int pcColShift = curPlateCnt / 8;
-                int pcColIndex = curPlateCnt - pcColShift * 8;
-                pipettingInfos.AddRange(GetPipettingInfosThisWell(Common.GetWellID("A6"), dstPlateIndex + 1, pcColIndex + 1 + pcColShift * 32, concPC));
-                curPlateCnt++;
-                int ncColShift = curPlateCnt / 8;
-                int ncColIndex = curPlateCnt - ncColShift * 8;
-                pipettingInfos.AddRange(GetPipettingInfosThisWell(Common.GetWellID("E6"), dstPlateIndex + 1, ncColIndex + 1 + ncColShift * 32, 0));
-
+               
             }
             return pipettingInfos;
         }

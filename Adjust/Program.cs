@@ -13,7 +13,7 @@ namespace Adjust
         static string concFile = ConfigurationManager.AppSettings["concFile"];
         static void Main(string[] args)
         {
-            try
+            //try
             {
                 Console.WriteLine(strings.version);
                 
@@ -69,10 +69,10 @@ namespace Adjust
                 ////pipettingInfos = pipettingInfos.OrderBy(x => x.dstPlateID * 100 + x.dstWellID).ToList();
                 //Common.Write2File(sFile + "oneBuffer.txt", pipettingInfos);
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine(ex.Message + ex.StackTrace);
-            }
+            //catch (Exception ex)
+            //{
+            //    Console.WriteLine(ex.Message + ex.StackTrace);
+            //}
             Console.WriteLine("Press any key to exit!");
             Console.ReadKey();
         }
