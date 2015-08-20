@@ -41,8 +41,10 @@ namespace Adjust
         {
             double concPC = concs.Last();
             concs.RemoveAt(concs.Count - 1);
+            int totalSampleCnt = concs.Count;
             List<int> specialIndexs = new List<int>() {22,23,46,47,70,71};
             int totalCnt = concs.Count;
+            specialPosConc.Clear();
             for (int i = totalCnt - 1; i >= 0; i--)
             {
                 if (specialIndexs.Contains(i))
@@ -51,57 +53,42 @@ namespace Adjust
                     concs.RemoveAt(i);
                 }
             }
-            //concs.AddRange(specialPosConc.Values); //move special position to end
+            int normalCnt = concs.Count;
+            concs.AddRange(specialPosConc.Values.Reverse()); //move special position to end
             List<PipettingInfoSimplify> pipettingInfos = new List<PipettingInfoSimplify>();
+            
             for( int i = 0; i< concs.Count; i++)
             {
+                bool isSpecial = i >= normalCnt;
                 int dstPlateIndex = i / maxCntPerPlate;
                 int indexInDstPlate = i - dstPlateIndex * maxCntPerPlate;
-                int colInDstPlate = indexInDstPlate / 8;
-                int indexInCol = indexInDstPlate - colInDstPlate * 8;
-                int startIndexInDst = colInDstPlate * 32 + indexInCol;
+                int startWellIDInDst = GetStartWellID(indexInDstPlate);
                 int srcWellID = i + 1 + dstPlateIndex * 2; //add 2 pushed back
+                if( isSpecial)
+                {
+                    srcWellID = specialIndexs[i-normalCnt] + 1;
+                }
                 if (srcWellID > 40)//one blank column
                     srcWellID += 8;
-                double conc = concs[i];
-                pipettingInfos.AddRange(GetPipettingInfosThisWell(srcWellID, dstPlateIndex + 1, startIndexInDst+1, conc));
+                pipettingInfos.AddRange(GetPipettingInfosThisWell(srcWellID, dstPlateIndex + 1, startWellIDInDst, concs[i]));
             }
 
-            specialPosConc = specialPosConc.Reverse().ToDictionary(x=>x.Key,x=>x.Value);
-            for (int i = 0; i < specialPosConc.Count; i++)
-            {
-                int curIndex = concs.Count + i;
-                int dstPlateIndex = curIndex / maxCntPerPlate;
-                int indexInDstPlate = curIndex - dstPlateIndex * maxCntPerPlate;
-                int colInDstPlate = indexInDstPlate / 8;
-                int indexInCol = indexInDstPlate - colInDstPlate * 8;
-                int startIndexInDst = colInDstPlate * 32 + indexInCol;
-                int srcWellID = specialIndexs[i] + 1;
-                double conc = specialPosConc[srcWellID-1];
-                if (srcWellID > 40)//one blank column
-                    srcWellID += 8;
-                pipettingInfos.AddRange(GetPipettingInfosThisWell(srcWellID, dstPlateIndex + 1, startIndexInDst + 1, conc));
-            }
-
-
-           
-            int dstPlateCnt = (concs.Count + maxCntPerPlate -1) / maxCntPerPlate;
+            int dstPlateCnt = (totalSampleCnt + maxCntPerPlate - 1) / maxCntPerPlate;
             for (int dstPlateIndex = 0; dstPlateIndex < dstPlateCnt; dstPlateIndex++)
             {
                 bool isFinalPlate = dstPlateIndex == dstPlateCnt - 1;
                 int curPlateCnt = maxCntPerPlate;
                 if (isFinalPlate)
                 {
-                    curPlateCnt = concs.Count + specialPosConc.Count - dstPlateCnt * maxCntPerPlate;
+                    curPlateCnt = totalSampleCnt - dstPlateIndex * maxCntPerPlate;
                     //normal + nc + pc + pushed back
-                    curPlateCnt++;
-                    int pcColShift = curPlateCnt / 8;
-                    int pcColIndex = curPlateCnt - pcColShift * 8;
-                    pipettingInfos.AddRange(GetPipettingInfosThisWell(Common.GetWellID("A6"), dstPlateIndex + 1, pcColIndex + 1 + pcColShift * 32, concPC));
-                    curPlateCnt++;
-                    int ncColShift = curPlateCnt / 8;
-                    int ncColIndex = curPlateCnt - ncColShift * 8;
-                    pipettingInfos.AddRange(GetPipettingInfosThisWell(Common.GetWellID("E6"), dstPlateIndex + 1, ncColIndex + 1 + ncColShift * 32, 0));
+                    int curIndex = curPlateCnt;
+                    int startID = GetStartWellID(curIndex);
+
+                    pipettingInfos.AddRange(GetPipettingInfosThisWell(Common.GetWellID("A6"), dstPlateIndex + 1, startID, concPC));
+                    curIndex++;
+                    startID = GetStartWellID(curIndex);
+                    pipettingInfos.AddRange(GetPipettingInfosThisWell(Common.GetWellID("E6"), dstPlateIndex + 1, startID, 0));
                 }
                 else
                 {
@@ -113,12 +100,20 @@ namespace Adjust
             return pipettingInfos;
         }
 
+        private int GetStartWellID(int curIndex)
+        {
+            int colShift = curIndex / 8;
+            int colIndex = curIndex - colShift * 8;
+            return colIndex + 1 + colShift * 32;
+        }
+
         private List<PipettingInfoSimplify> GetPipettingInfosThisWell(int curWellID,int plateID, int wellID, double conc)
         {
             List<PipettingInfoSimplify> pipettingInfos = new List<PipettingInfoSimplify>();
             for(int i = 0; i< 4; i++)
             {
-                pipettingInfos.Add(new PipettingInfoSimplify(curWellID, plateID, wellID + i * 8, conc));
+                int bufferType =  i + 1;
+                pipettingInfos.Add(new PipettingInfoSimplify(bufferType, curWellID, plateID, wellID + i * 8, conc));
             }
             return pipettingInfos;
         }
@@ -161,10 +156,10 @@ namespace Adjust
         {
             List<PipettingInfoSimplify> pipettingInfos = new List<PipettingInfoSimplify>();
             int bufferType = plateIndex + 1;
-            pipettingInfos.Add(new PipettingInfoSimplify(Common.GetWellID("A6"), plateIndex + 1, Common.GetWellID("A6"), concPC));
-            pipettingInfos.Add(new PipettingInfoSimplify(Common.GetWellID("A6"), plateIndex + 1, Common.GetWellID("A12"), concPC));
-            pipettingInfos.Add(new PipettingInfoSimplify(Common.GetWellID("E6"), plateIndex + 1, Common.GetWellID("E6"), 0));
-            pipettingInfos.Add(new PipettingInfoSimplify(Common.GetWellID("E6"), plateIndex + 1, Common.GetWellID("E12"), 0));
+            pipettingInfos.Add(new PipettingInfoSimplify(1,Common.GetWellID("A6"), plateIndex + 1, Common.GetWellID("A6"), concPC));
+            pipettingInfos.Add(new PipettingInfoSimplify(2,Common.GetWellID("A6"), plateIndex + 1, Common.GetWellID("A12"), concPC));
+            pipettingInfos.Add(new PipettingInfoSimplify(1,Common.GetWellID("E6"), plateIndex + 1, Common.GetWellID("E6"), 0));
+            pipettingInfos.Add(new PipettingInfoSimplify(2,Common.GetWellID("E6"), plateIndex + 1, Common.GetWellID("E12"), 0));
             return pipettingInfos;
         }
 
@@ -174,7 +169,7 @@ namespace Adjust
             for (int i = 0; i < 2; i++)
             {
                 int dstWellID = wellID + i*48;
-                pipettingInfos.Add(new PipettingInfoSimplify(curWellID, plateID, dstWellID, conc));
+                pipettingInfos.Add(new PipettingInfoSimplify(i+1,curWellID, plateID, dstWellID, conc));
             }
             return pipettingInfos;
         }
@@ -217,8 +212,8 @@ namespace Adjust
             //    pipettingInfos.Add(new PipettingInfo(Common.GetWellID("A6"), 1, dstStartID++, Math.Round(conc)));
             //    conc = conc * 2;
             //}
-            pipettingInfos.Add(new PipettingInfoSimplify(Common.GetWellID("E6"), 1, Common.GetWellID("G6"), 0));
-            pipettingInfos.Add(new PipettingInfoSimplify(Common.GetWellID("E6"), 1, Common.GetWellID("H6"), 0));
+            pipettingInfos.Add(new PipettingInfoSimplify(1,Common.GetWellID("E6"), 1, Common.GetWellID("G6"), 0));
+            pipettingInfos.Add(new PipettingInfoSimplify(1,Common.GetWellID("E6"), 1, Common.GetWellID("H6"), 0));
             return pipettingInfos;
         }
 
@@ -226,7 +221,7 @@ namespace Adjust
         {
             List<PipettingInfoSimplify> pipettingInfos = new List<PipettingInfoSimplify>();
 
-            pipettingInfos.Add(new PipettingInfoSimplify(curWellID, plateID, curWellID, conc));
+            pipettingInfos.Add(new PipettingInfoSimplify(1,curWellID, plateID, curWellID, conc));
             return pipettingInfos;
         }
 
@@ -265,13 +260,15 @@ namespace Adjust
         public int dstPlateID;
         public int dstWellID;
         public double conc;
+        public int bufferType;
 
-        public PipettingInfoSimplify(int srcWellID, int dstPlateID, int dstWellID, double conc)
+        public PipettingInfoSimplify(int bufferType, int srcWellID, int dstPlateID, int dstWellID, double conc)
         {
             this.srcWellID = srcWellID;
             this.dstPlateID = dstPlateID;
             this.dstWellID = dstWellID;
             this.conc = conc;
+            this.bufferType = bufferType;
         }
     }
 
@@ -280,8 +277,9 @@ namespace Adjust
         public static int rows = 8;
         public static int cols = 12;
         private static int dstConc = int.Parse(ConfigurationManager.AppSettings["dstConc"]);
-        private static int totalVolume = int.Parse(ConfigurationManager.AppSettings["totalVolume"]);
+        public static int totalVolume = int.Parse(ConfigurationManager.AppSettings["totalVolume"]);
         private static int ncVolume = int.Parse(ConfigurationManager.AppSettings["ncVolume"]);
+        public static int BufferCount { get; set; }
         public static int GetWellID(int rowIndex, int colIndex)
         {
             return colIndex * 8 + rowIndex + 1;
@@ -302,28 +300,28 @@ namespace Adjust
         }
 
 
-        public static void Write2File(string sFile,List<PipettingInfoSimplify> pipettingInfos, bool addingSample)
+        public static void Write2File(string sFile,List<PipettingInfoSimplify> pipettingInfos,int batchID, bool addingSample)
         {
             List<string> strs = new List<string>();
-            //pipettingInfos.ForEach(x=>strs.Add(Format(x,addingSample)));
-
             foreach(var pipettingInfo in pipettingInfos)
             {
-                string s = Format(pipettingInfo, addingSample);
+                string s = Format(pipettingInfo,batchID, addingSample);
                 if (s != "")
                     strs.Add(s);
             }
             File.WriteAllLines(sFile, strs);
         }
 
-        private static string Format(PipettingInfoSimplify pipettingInfo, bool addingSample)
+        private static string Format(PipettingInfoSimplify pipettingInfo,int batchID, bool addingSample)
         {
-            string srcLabware = addingSample ? "sample" : "buffer";
+            string srcLabware = addingSample ? string.Format("sample{0}",batchID) : string.Format("buffer{0}",pipettingInfo.bufferType);
             int volume = CalculateVolume(pipettingInfo.conc, addingSample);
+            if (volume == 0)
+                return "";
             return string.Format("{0},{1},plate{2},{3},{4}",
                                             srcLabware,
                                             GetWellDesc(pipettingInfo.srcWellID),
-                                            pipettingInfo.dstPlateID,
+                                            pipettingInfo.dstPlateID + (batchID-1) * BufferCount,
                                             GetWellDesc(pipettingInfo.dstWellID),
                                             volume);
         }
@@ -332,27 +330,33 @@ namespace Adjust
         {
             
             double volume = totalVolume * dstConc / conc;
-            if (conc == 0) // for nc
-                volume = ncVolume;
-
             //limit volume into 1-10
             if (volume < 1)
                 volume = 1;
             if (volume > 10)
                 volume = 10;
 
+            if (conc == 0) // for nc
+            {
+                volume = ncVolume;
+            }
             if (!addingSample)
                 volume = totalVolume - volume;
             return (int)Math.Round(volume);
 
         }
 
-        internal static List<PipettingInfo> Convert2CompletePipettingInfos(List<PipettingInfoSimplify> pipettingInfos)
+        internal static List<PipettingInfo> Convert2CompletePipettingInfos(List<PipettingInfoSimplify> pipettingInfos, int batchID)
         {
             List<PipettingInfo> completePipettingInfos = new List<PipettingInfo>();
-            pipettingInfos.ForEach(x => completePipettingInfos.Add(new PipettingInfo(x, CalculateVolume(x.conc, false), 
-                                                                    string.Format("buffer{0}",x.dstPlateID))));
+            pipettingInfos.ForEach(x => AddBuffer(x,batchID,completePipettingInfos));
             return completePipettingInfos;
+        }
+
+        private static void AddBuffer(PipettingInfoSimplify x,int batchID, List<PipettingInfo> completePipettingInfos)
+        {
+            x.dstPlateID += (batchID - 1) * BufferCount;
+            completePipettingInfos.Add(new PipettingInfo(x, CalculateVolume(x.conc, false), string.Format("buffer{0}", x.bufferType)));
         }
     }
 }

@@ -13,66 +13,64 @@ namespace Adjust
         static string concFile = ConfigurationManager.AppSettings["concFile"];
         static void Main(string[] args)
         {
-            //try
+#if DEBUG
+#else
+            try
+#endif
             {
+                if (args.Length == 0)
+                    throw new Exception("No buffer count has been specified!");
                 Console.WriteLine(strings.version);
-                
                 DeleteCSVFiles(concFile);
                 Console.WriteLine("Converting excel to csv file...");
                 Convert2CSV();
                 concFile = concFile.Replace(".xlsx", ".csv");
                 List<double> concs = ReadConcs(concFile);
-                
                 Console.WriteLine("Converted successfully.");
-                //FourBuffers fourBuffers = new FourBuffers();
-                if(args.Length == 0)
-                    throw new Exception("No buffer count has been specified!");
-                
                 int bufferCnt = int.Parse(args[0]);
-                if (bufferCnt > 80)
-                    throw new Exception("sample count must <= 80!");
-                IPipettingInfosGenerator pipettingGenerator = BufferFactory.Create(bufferCnt);
-                var simplifyPipettingInfos = pipettingGenerator.GetPipettingInfos(concs);
-                simplifyPipettingInfos = simplifyPipettingInfos.OrderBy(x => x.dstPlateID * 100 + x.dstWellID).ToList();
-                
+                if (bufferCnt <= 0)
+                    throw new Exception("sample count must > 0!");
+                Common.BufferCount = bufferCnt;
+                Console.WriteLine(string.Format("buffer type count is :{0}", bufferCnt));
                 FileInfo fi = new FileInfo(concFile);
                 string sDir = fi.Directory.FullName;
-                string sSamplePipetting = sDir + "\\sample.csv";
-                string sBufferPipetting = sDir + string.Format("\\buffer{0}.csv", bufferCnt);
-                string sBufferPipettingGWL = sDir + string.Format("\\buffer{0}.gwl",bufferCnt);
-                Common.Write2File(sSamplePipetting, simplifyPipettingInfos, true);
-                Common.Write2File(sBufferPipetting, simplifyPipettingInfos, false);
-                Worklist wklist = new Worklist();
-                var completePipettingInfos = Common.Convert2CompletePipettingInfos(simplifyPipettingInfos);
-                File.WriteAllLines(sBufferPipettingGWL, wklist.GenerateGWL(completePipettingInfos));
-                Console.WriteLine(string.Format("worklist for sample & buffer has been generated at:{0}", sDir));
-                //List<double> testConcs = new List<double>();
-                //for (int i = 0; i < 81; i++)
-                //{
-                //    testConcs.Add(i + 1);
-                //}
-                //List<PipettingInfo> pipettingInfos = null;
-                //string sFile = @"F:\temp\";
-                ////FourBuffers fourBuffers = new FourBuffers();
-                ////var pipettingInfos = fourBuffers.GetPipettingInfos(testConcs);
-                //////pipettingInfos = pipettingInfos.OrderBy(x => x.dstPlateID * 100 + x.dstWellID).ToList();
-                ////string sFile = @"F:\temp\";
-                ////Common.Write2File(sFile + "fourBuffers.txt", pipettingInfos);
+                IPipettingInfosGenerator pipettingGenerator = BufferFactory.Create(bufferCnt);
 
-                //TwoBuffers twoBuffers = new TwoBuffers();
-                //pipettingInfos = twoBuffers.GetPipettingInfos(testConcs);
-                ////pipettingInfos = pipettingInfos.OrderBy(x => x.dstPlateID * 100 + x.dstWellID).ToList();
-                //Common.Write2File(sFile + "twoBuffers.txt", pipettingInfos);
-
-                //OneBuffer oneBuffer = new OneBuffer();
-                //pipettingInfos = oneBuffer.GetPipettingInfos(testConcs);
-                ////pipettingInfos = pipettingInfos.OrderBy(x => x.dstPlateID * 100 + x.dstWellID).ToList();
-                //Common.Write2File(sFile + "oneBuffer.txt", pipettingInfos);
+                double pcConc = concs.Last();
+                concs.RemoveAt(concs.Count - 1);
+                int batchID = 0;
+                while(concs.Count > 0)
+                {
+                    var thisBatchConcs = concs.Take(80).ToList();
+                    batchID++;
+                    concs = concs.Skip(thisBatchConcs.Count).ToList();
+                    thisBatchConcs.Add(pcConc);
+                    var simplifyPipettingInfos = pipettingGenerator.GetPipettingInfos(thisBatchConcs);
+                    simplifyPipettingInfos = simplifyPipettingInfos.OrderBy(x => x.dstPlateID * 10000 + x.dstWellID).ToList();
+                    string subFolder = sDir + string.Format("\\batch{0}\\",batchID);
+                    if (!Directory.Exists(subFolder))
+                        Directory.CreateDirectory(subFolder);
+                    string sSamplePipetting = subFolder + string.Format("\\sample.csv", batchID);
+                    string sBufferPipetting = subFolder + string.Format("\\buffer{0}.csv", bufferCnt);
+                    string sBufferPipettingGWL = subFolder + string.Format("\\buffer{0}.gwl", bufferCnt);
+                    Common.Write2File(sSamplePipetting, simplifyPipettingInfos,batchID, true);
+                    Common.Write2File(sBufferPipetting, simplifyPipettingInfos,batchID, false);
+                    Worklist wklist = new Worklist();
+                    var completePipettingInfos = Common.Convert2CompletePipettingInfos(simplifyPipettingInfos,batchID);
+                    File.WriteAllLines(sBufferPipettingGWL, wklist.GenerateGWL(completePipettingInfos));
+                    Console.WriteLine(string.Format("worklist for sample&buffer for batch: {0} has been generated at:{1}",batchID, subFolder));
+                }
+                File.WriteAllText(sDir + "\\totalVolume.txt", Common.totalVolume.ToString());
+                File.WriteAllText(sDir + "\\batchCount.txt", (batchID-1).ToString());
+                
             }
-            //catch (Exception ex)
-            //{
-            //    Console.WriteLine(ex.Message + ex.StackTrace);
-            //}
+#if DEBUG
+#else
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message + ex.StackTrace);
+            }
+#endif
             Console.WriteLine("Press any key to exit!");
             Console.ReadKey();
         }
