@@ -1,0 +1,24 @@
+﻿0.04 
+1 1种buffer时，PC没有梯度
+2 nc加buffer
+3 >10 => 10
+4 buffer.csv => bufferX.csv
+5 修复bug=>1种buffer时，如果样本数量不等于80
+
+0.05 8/14
+1 生成worklist
+
+0.08 8/18
+1 bug => ncVolume不起作用
+2 重写加样位置计算逻辑
+
+0.10 8/19
+1 nc加buffer
+2 修改gwl生成逻辑
+3 totalVolume输出便于EVO读取
+
+0.11
+大于80个样品
+
+0.12 8/21
+fix bug Plate6中只该有G3和A6,从第二块板子开始每次少一个。
