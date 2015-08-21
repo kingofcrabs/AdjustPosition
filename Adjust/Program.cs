@@ -18,6 +18,9 @@ namespace Adjust
             try
 #endif
             {
+                FileInfo fi = new FileInfo(concFile);
+                string sDir = fi.Directory.FullName;
+                File.WriteAllText(sDir + "result.txt", "false");
                 if (args.Length == 0)
                     throw new Exception("No buffer count has been specified!");
                 Console.WriteLine(strings.version);
@@ -25,26 +28,30 @@ namespace Adjust
                 Console.WriteLine("Converting excel to csv file...");
                 Convert2CSV();
                 concFile = concFile.Replace(".xlsx", ".csv");
-                List<double> concs = ReadConcs(concFile);
+                List<double> sampleConcs = new List<double>();
+                List<double> pcConcs = new List<double>();
+                //= ReadConcs(concFile);
+                ReadConcs(concFile, sampleConcs, pcConcs);
                 Console.WriteLine("Converted successfully.");
                 int bufferCnt = int.Parse(args[0]);
                 if (bufferCnt <= 0)
                     throw new Exception("sample count must > 0!");
                 Common.BufferCount = bufferCnt;
                 Console.WriteLine(string.Format("buffer type count is :{0}", bufferCnt));
-                FileInfo fi = new FileInfo(concFile);
-                string sDir = fi.Directory.FullName;
+             
                 IPipettingInfosGenerator pipettingGenerator = BufferFactory.Create(bufferCnt);
-
-                double pcConc = concs.Last();
-                concs.RemoveAt(concs.Count - 1);
+                int totalBatchCnt = (sampleConcs.Count + 88 - 1) / 88;
+                if (totalBatchCnt != pcConcs.Count)
+                    throw new Exception(string.Format("total sample plate count is:{0}, PC concentration value's count is:{1}, NOT EQUAL!", totalBatchCnt, pcConcs.Count));
+                //double pcConc = sampleConcs.Last();
+                //sampleConcs.RemoveAt(sampleConcs.Count - 1);
                 int batchID = 0;
-                while(concs.Count > 0)
+                while(sampleConcs.Count > 0)
                 {
-                    var thisBatchConcs = concs.Take(80).ToList();
+                    var thisBatchConcs = sampleConcs.Take(80).ToList();
                     batchID++;
-                    concs = concs.Skip(thisBatchConcs.Count).ToList();
-                    thisBatchConcs.Add(pcConc);
+                    sampleConcs = sampleConcs.Skip(thisBatchConcs.Count).ToList();
+                    thisBatchConcs.Add(pcConcs[batchID-1]);
                     var simplifyPipettingInfos = pipettingGenerator.GetPipettingInfos(thisBatchConcs);
                     simplifyPipettingInfos = simplifyPipettingInfos.OrderBy(x => x.dstPlateID * 10000 + x.dstWellID).ToList();
                     string subFolder = sDir + string.Format("\\batch{0}\\",batchID);
@@ -62,7 +69,7 @@ namespace Adjust
                 }
                 File.WriteAllText(sDir + "\\totalVolume.txt", Common.totalVolume.ToString());
                 File.WriteAllText(sDir + "\\batchCount.txt", (batchID-1).ToString());
-                
+                File.WriteAllText(sDir + "result.txt", "true");
             }
 #if DEBUG
 #else
@@ -82,20 +89,23 @@ namespace Adjust
                 File.Delete(sCSV);
         }
 
-        
-
-        private static List<double> ReadConcs(string concFile)
+   
+        private static void ReadConcs(string concFile,List<double> sampleConcs, List<double> pcConcs)
         {
             List<double> vals = new List<double>();
             var strs = File.ReadAllLines(concFile);
-            for(int i = 2; i< strs.Length; i++)
+            for (int i = 2; i < strs.Length; i++)
             {
                 string[] tmpStrs = strs[i].Split(',');
                 if (tmpStrs[2] == "")
                     break;
-                vals.Add(double.Parse(tmpStrs[2]));
+                bool bPC = tmpStrs[0].ToLower().Contains("pc");
+                double val = double.Parse(tmpStrs[2]);
+                if (bPC)
+                    pcConcs.Add(val);
+                else
+                    sampleConcs.Add(val);
             }
-            return vals;
         }
 
         internal static void Convert2CSV()

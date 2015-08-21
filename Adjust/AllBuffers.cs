@@ -279,6 +279,7 @@ namespace Adjust
         private static int dstConc = int.Parse(ConfigurationManager.AppSettings["dstConc"]);
         public static int totalVolume = int.Parse(ConfigurationManager.AppSettings["totalVolume"]);
         private static int ncVolume = int.Parse(ConfigurationManager.AppSettings["ncVolume"]);
+        private static int maxTransferVolume = int.Parse(ConfigurationManager.AppSettings["maxTransferVolume"]);
         public static int BufferCount { get; set; }
         public static int GetWellID(int rowIndex, int colIndex)
         {
@@ -330,16 +331,15 @@ namespace Adjust
         {
             
             double volume = totalVolume * dstConc / conc;
-            //limit volume into 1-10
-            if (volume < 1)
-                volume = 1;
-            if (volume > 10)
-                volume = 10;
-
             if (conc == 0) // for nc
             {
                 volume = ncVolume;
             }
+            //limit volume into 1-10
+            if (volume < 1)
+                volume = 1;
+            if (volume > maxTransferVolume)
+                volume = maxTransferVolume;
             if (!addingSample)
                 volume = totalVolume - volume;
             return (int)Math.Round(volume);
