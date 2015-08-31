@@ -316,18 +316,18 @@ namespace Adjust
         private static string Format(PipettingInfoSimplify pipettingInfo,int batchID, bool addingSample)
         {
             string srcLabware = addingSample ? string.Format("sample{0}",batchID) : string.Format("buffer{0}",pipettingInfo.bufferType);
-            int volume = CalculateVolume(pipettingInfo.conc, addingSample);
+            double volume = CalculateVolume(pipettingInfo.conc, addingSample);
             if (volume == 0)
                 return "";
-            return string.Format("{0},{1},plate{2},{3},{4}",
+            return string.Format("{0},{1},plate{2},{3},{4:f1}",
                                             srcLabware,
-                                            GetWellDesc(pipettingInfo.srcWellID),
+                                            pipettingInfo.srcWellID,
                                             pipettingInfo.dstPlateID + (batchID-1) * BufferCount,
-                                            GetWellDesc(pipettingInfo.dstWellID),
+                                            pipettingInfo.dstWellID,
                                             volume);
         }
 
-        private static int CalculateVolume(double conc, bool addingSample)
+        private static double CalculateVolume(double conc, bool addingSample)
         {
             
             double volume = totalVolume * dstConc / conc;
@@ -342,15 +342,24 @@ namespace Adjust
                 volume = maxTransferVolume;
             if (!addingSample)
                 volume = totalVolume - volume;
-            return (int)Math.Round(volume);
+            return volume;
 
         }
 
-        internal static List<PipettingInfo> Convert2CompletePipettingInfos(List<PipettingInfoSimplify> pipettingInfos, int batchID)
+        internal static List<PipettingInfo> Convert2CompletePipettingInfos(List<PipettingInfoSimplify> pipettingInfos, int batchID, bool isBuffer = true)
         {
             List<PipettingInfo> completePipettingInfos = new List<PipettingInfo>();
-            pipettingInfos.ForEach(x => AddBuffer(x,batchID,completePipettingInfos));
+            if(isBuffer)
+                pipettingInfos.ForEach(x => AddBuffer(x,batchID,completePipettingInfos));
+            else
+                pipettingInfos.ForEach(x => AddSample(x, batchID, completePipettingInfos));
             return completePipettingInfos;
+        }
+
+        private static void AddSample(PipettingInfoSimplify x, int batchID, List<PipettingInfo> completePipettingInfos)
+        {
+            x.dstPlateID += (batchID - 1) * BufferCount;
+            completePipettingInfos.Add(new PipettingInfo(x, CalculateVolume(x.conc, true), string.Format("sample{0}", batchID)));
         }
 
         private static void AddBuffer(PipettingInfoSimplify x,int batchID, List<PipettingInfo> completePipettingInfos)

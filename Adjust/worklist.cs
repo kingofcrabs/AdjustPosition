@@ -45,6 +45,7 @@ namespace Adjust
                 }
                 scripts.Add("W;");
             }
+            //scripts.AddRange(GenerateBasicGWL(tmpInfos));
             scripts.Add("B;");
         }
 
@@ -75,7 +76,7 @@ namespace Adjust
         private string GetAspOrDisp(string sLabware, int wellID, double vol, bool isAsp)
         {
 
-            string str = string.Format("{0};{1};;;{2};;{3};;;",
+            string str = string.Format("{0};{1};;;{2};;{3:f1};;;",
                          isAsp ? 'A' : 'D',
                         sLabware,
                         wellID,
@@ -91,6 +92,34 @@ namespace Adjust
         private string GetDispense(string sLabware, int dstWellID, double vol)
         {
             return GetAspOrDisp(sLabware, dstWellID, vol, false);
+        }
+
+        internal IEnumerable<string> GenerateBasicGWL(List<PipettingInfo> samplePipettingInfos)
+        {
+            int maxTipReuseTimes = int.Parse(ConfigurationManager.AppSettings["reuseTimes"]);
+            List<string> scripts = new List<string>();
+            samplePipettingInfos = samplePipettingInfos.OrderBy(x => x.srcWellID).ToList();
+            while (samplePipettingInfos.Count > 0)
+            {
+                int srcWellID = samplePipettingInfos[0].srcWellID;
+                var srcLabel = samplePipettingInfos[0].srcLabware;
+                var sameSourceWellPipettingInfos = samplePipettingInfos.Where(x => x.srcWellID == srcWellID && x.srcLabware == srcLabel);
+                samplePipettingInfos = samplePipettingInfos.Except(sameSourceWellPipettingInfos).ToList();
+
+                int tipReusedTimes = 0;
+                bool bNeedWash = false;
+                foreach (var pipettingInfo in sameSourceWellPipettingInfos)
+                {
+                    scripts.Add(GetAspirate(pipettingInfo.srcLabware, pipettingInfo.srcWellID, pipettingInfo.volume));
+                    scripts.Add(GetDispense(pipettingInfo.dstLabware, pipettingInfo.dstWellID, pipettingInfo.volume));
+                    tipReusedTimes++;
+                    bNeedWash = tipReusedTimes % maxTipReuseTimes == 0;
+                    if (bNeedWash)
+                        scripts.Add("W;");
+                }
+                scripts.Add("W;");
+            }
+            return scripts;
         }
     }
 }

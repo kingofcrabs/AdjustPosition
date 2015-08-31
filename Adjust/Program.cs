@@ -60,11 +60,16 @@ namespace Adjust
                     string sSamplePipetting = subFolder + string.Format("\\sample.csv", batchID);
                     string sBufferPipetting = subFolder + string.Format("\\buffer{0}.csv", bufferCnt);
                     string sBufferPipettingGWL = subFolder + string.Format("\\buffer{0}.gwl", bufferCnt);
+                    string sSamplePipettingGWL = subFolder + string.Format("\\sample.gwl", batchID);
                     Common.Write2File(sSamplePipetting, simplifyPipettingInfos,batchID, true);
                     Common.Write2File(sBufferPipetting, simplifyPipettingInfos,batchID, false);
                     Worklist wklist = new Worklist();
-                    var completePipettingInfos = Common.Convert2CompletePipettingInfos(simplifyPipettingInfos,batchID);
-                    File.WriteAllLines(sBufferPipettingGWL, wklist.GenerateGWL(completePipettingInfos));
+                    
+                    var bufferPipettingInfos = Common.Convert2CompletePipettingInfos(simplifyPipettingInfos,batchID);
+                    File.WriteAllLines(sBufferPipettingGWL, wklist.GenerateGWL(bufferPipettingInfos));
+
+                    var samplePipettingInfos = Common.Convert2CompletePipettingInfos(simplifyPipettingInfos, batchID,false);
+                    File.WriteAllLines(sSamplePipettingGWL, wklist.GenerateBasicGWL(samplePipettingInfos));
                     Console.WriteLine(string.Format("worklist for sample&buffer for batch: {0} has been generated at:{1}",batchID, subFolder));
                 }
                 File.WriteAllText(sDir + "\\totalVolume.txt", Common.totalVolume.ToString());
