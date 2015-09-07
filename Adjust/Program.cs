@@ -40,7 +40,9 @@ namespace Adjust
                 Console.WriteLine(string.Format("buffer type count is :{0}", bufferCnt));
              
                 IPipettingInfosGenerator pipettingGenerator = BufferFactory.Create(bufferCnt);
-                int totalBatchCnt = (sampleConcs.Count + 88 - 1) / 88;
+
+                // -1 for common NC, 81 for each plate
+                int totalBatchCnt = (sampleConcs.Count -1 + 81 - 1) / 81;
                 if (totalBatchCnt != pcConcs.Count)
                     throw new Exception(string.Format("total sample plate count is:{0}, PC concentration value's count is:{1}, NOT EQUAL!", totalBatchCnt, pcConcs.Count));
                 //double pcConc = sampleConcs.Last();
