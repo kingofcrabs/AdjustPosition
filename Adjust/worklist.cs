@@ -113,8 +113,8 @@ namespace Adjust
                     scripts.Add(GetAspirate(pipettingInfo.srcLabware, pipettingInfo.srcWellID, pipettingInfo.volume));
                     scripts.Add(GetDispense(pipettingInfo.dstLabware, pipettingInfo.dstWellID, pipettingInfo.volume));
                     tipReusedTimes++;
-                    bNeedWash = tipReusedTimes % maxTipReuseTimes == 0;
-                    if (bNeedWash)
+                    //bNeedWash = tipReusedTimes % maxTipReuseTimes == 0;
+                    //if (bNeedWash)
                         scripts.Add("W;");
                 }
                 scripts.Add("W;");
