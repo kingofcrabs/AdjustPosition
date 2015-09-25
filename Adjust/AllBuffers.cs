@@ -270,6 +270,15 @@ namespace Adjust
             this.conc = conc;
             this.bufferType = bufferType;
         }
+
+        public PipettingInfoSimplify(PipettingInfoSimplify x)
+        {
+            this.srcWellID = x.srcWellID;
+            this.dstPlateID = x.dstPlateID;
+            this.dstWellID = x.dstWellID;
+            this.conc = x.conc;
+            this.bufferType = x.bufferType;
+        }
     }
 
     class Common
@@ -358,14 +367,17 @@ namespace Adjust
 
         private static void AddSample(PipettingInfoSimplify x, int batchID, List<PipettingInfo> completePipettingInfos)
         {
-            x.dstPlateID += (batchID - 1) * BufferCount;
-            completePipettingInfos.Add(new PipettingInfo(x, CalculateVolume(x.conc, true), string.Format("sample{0}", batchID)));
+            //x.dstPlateID += (batchID - 1) * BufferCount;
+            PipettingInfoSimplify temp = new PipettingInfoSimplify(x);
+            temp.dstPlateID += (batchID - 1) * BufferCount;
+            completePipettingInfos.Add(new PipettingInfo(temp, CalculateVolume(x.conc, true), string.Format("sample{0}", batchID)));
         }
 
         private static void AddBuffer(PipettingInfoSimplify x,int batchID, List<PipettingInfo> completePipettingInfos)
         {
-            x.dstPlateID += (batchID - 1) * BufferCount;
-            completePipettingInfos.Add(new PipettingInfo(x, CalculateVolume(x.conc, false), string.Format("buffer{0}", x.bufferType)));
+            PipettingInfoSimplify temp = new PipettingInfoSimplify(x);
+            temp.dstPlateID += (batchID - 1) * BufferCount;
+            completePipettingInfos.Add(new PipettingInfo(temp, CalculateVolume(x.conc, false), string.Format("buffer{0}", x.bufferType)));
         }
     }
 }
