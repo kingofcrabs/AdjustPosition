@@ -338,8 +338,13 @@ namespace Adjust
 
         private static double CalculateVolume(double conc, bool addingSample)
         {
-            
-            double volume = totalVolume * dstConc / conc;
+
+            double volume = 0;
+            if( conc != dstConc)
+                volume = totalVolume * dstConc / (conc-dstConc);
+            if (volume < 0)
+                volume = maxTransferVolume;
+
             if (conc == 0) // for nc
             {
                 volume = ncVolume;

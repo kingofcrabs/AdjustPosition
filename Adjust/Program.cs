@@ -107,7 +107,12 @@ namespace Adjust
                 if (tmpStrs[2] == "")
                     break;
                 bool bPC = tmpStrs[0].ToLower().Contains("pc");
-                double val = double.Parse(tmpStrs[2]);
+                //double val = double.Parse(tmpStrs[2]);
+                double val = 0;
+                bool bok = double.TryParse(tmpStrs[2], out val);
+                if (!bok || val == 0) //if val == 0 or val == DIV/0 make val = 0.1
+                    val = 0.1;
+
                 if (bPC)
                     pcConcs.Add(val);
                 else
