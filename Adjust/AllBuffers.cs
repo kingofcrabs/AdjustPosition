@@ -285,9 +285,9 @@ namespace Adjust
     {
         public static int rows = 8;
         public static int cols = 12;
-        private static int dstConc = int.Parse(ConfigurationManager.AppSettings["dstConc"]);
+        private static double dstConc = double.Parse(ConfigurationManager.AppSettings["dstConc"]);
         public static int totalVolume = int.Parse(ConfigurationManager.AppSettings["totalVolume"]);
-        private static int ncVolume = int.Parse(ConfigurationManager.AppSettings["ncVolume"]);
+        private static double ncVolume = double.Parse(ConfigurationManager.AppSettings["ncVolume"]);
         private static int maxTransferVolume = int.Parse(ConfigurationManager.AppSettings["maxTransferVolume"]);
         public static int BufferCount { get; set; }
         public static int GetWellID(int rowIndex, int colIndex)
@@ -340,8 +340,11 @@ namespace Adjust
         {
 
             double volume = 0;
-            if( conc != dstConc)
-                volume = totalVolume * dstConc / (conc-dstConc);
+            if (conc != dstConc)
+                volume = totalVolume * dstConc / (conc - dstConc);
+            else
+                volume = maxTransferVolume;
+
             if (volume < 0)
                 volume = maxTransferVolume;
 
